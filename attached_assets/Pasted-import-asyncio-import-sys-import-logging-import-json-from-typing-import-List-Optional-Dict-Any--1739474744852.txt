@@ -1,0 +1,308 @@
+import asyncio
+import sys
+import logging
+import json
+from typing import List, Optional, Dict, Any
+
+# External / custom modules that you currently use:
+# Adjust these imports as necessary
+from pinecone import Pinecone, ServerlessSpec
+from langchain_pinecone import PineconeVectorStore
+from langchain_openai import OpenAIEmbeddings
+
+################################################################################
+# REPLACE THIS WITH YOUR ACTUAL SETTINGS OR ENVIRONMENT VARIABLES
+################################################################################
+class Settings:
+    openai_api_key = "YOUR_OPENAI_API_KEY"
+    pinecone_api_key = "YOUR_PINECONE_API_KEY"
+    pinecone_index = "YOUR_PINECONE_INDEX"
+
+settings = Settings()
+################################################################################
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+###############################################################################
+# PineconeService
+###############################################################################
+class PineconeServiceError(Exception):
+    """Base exception for Pinecone service operations."""
+    pass
+
+class PineconeService:
+    """Service for interacting with Pinecone vector store."""
+
+    def __init__(self):
+        """Initialize Pinecone service."""
+        try:
+            logger.info("Initializing PineconeService")
+            self.embeddings = OpenAIEmbeddings(
+                model="text-embedding-3-small",
+                openai_api_key=settings.openai_api_key
+            )
+
+            self.dimension = 1536  # For 'text-embedding-3-small'
+            self.pc = Pinecone(api_key=settings.pinecone_api_key)
+
+            # Connect to or create the Pinecone index
+            try:
+                self.index = self.pc.Index(settings.pinecone_index)
+                logger.info(f"Connected to existing Pinecone index: {settings.pinecone_index}")
+            except Exception:
+                logger.info(f"Index {settings.pinecone_index} not found, creating new index...")
+                self.pc.create_index(
+                    name=settings.pinecone_index,
+                    dimension=self.dimension,
+                    metric="cosine",
+                    spec=ServerlessSpec(cloud="aws", region="us-east-1")
+                )
+                self.index = self.pc.Index(settings.pinecone_index)
+                logger.info(f"Created new Pinecone index: {settings.pinecone_index}")
+
+            # Log index stats
+            stats = self.index.describe_index_stats()
+            logger.info(f"Total vectors in index: {stats.total_vector_count}")
+
+        except Exception as e:
+            error_msg = f"Failed to initialize Pinecone service: {str(e)}"
+            logger.error(error_msg)
+            raise PineconeServiceError(error_msg)
+
+    async def similarity_search(
+        self,
+        query: str,
+        k: int = 2,
+        namespaces: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """Perform similarity search."""
+        try:
+            # Generate query embedding
+            query_embedding = self.embeddings.embed_query(query)
+            logger.info(f"Generated query embedding with dimension: {len(query_embedding)}")
+
+            all_results = []
+            if namespaces:
+                logger.info(f"Performing similarity search across namespaces: {namespaces}")
+                for namespace in namespaces:
+                    try:
+                        logger.debug(f"Searching in namespace: {namespace}")
+                        stats = self.index.describe_index_stats()
+                        namespace_stats = stats.namespaces.get(namespace, {})
+                        logger.info(f"Vectors in namespace '{namespace}': {namespace_stats.get('vector_count', 0)}")
+
+                        response = self.index.query(
+                            vector=query_embedding,
+                            top_k=k,
+                            include_metadata=True,
+                            namespace=namespace
+                        )
+
+                        logger.info(f"Found {len(response.matches)} matches in namespace '{namespace}'")
+                        for match in response.matches:
+                            result = {
+                                "score": match.score,
+                                "metadata": match.metadata,
+                                "namespace": namespace
+                            }
+                            all_results.append(result)
+
+                    except Exception as e:
+                        logger.error(f"Error searching namespace {namespace}: {str(e)}", exc_info=True)
+                        continue
+
+                # Sort across all namespaces by score (descending)
+                all_results.sort(key=lambda x: float(x["score"]), reverse=True)
+                return all_results[:k]
+            else:
+                logger.info("Performing similarity search without namespace specification")
+                response = self.index.query(
+                    vector=query_embedding,
+                    top_k=k,
+                    include_metadata=True
+                )
+                return [{
+                    "score": match.score,
+                    "metadata": match.metadata
+                } for match in response.matches]
+
+        except Exception as e:
+            error_msg = f"Error in similarity search: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            raise PineconeServiceError(error_msg)
+
+###############################################################################
+# RetrievalTool (example implementation)
+###############################################################################
+class RetrievalTool:
+    """Tool to perform queries against PineconeService and format the results."""
+
+    def __init__(self, pinecone_service: PineconeService):
+        self.pinecone_service = pinecone_service
+
+    async def execute(
+        self,
+        query: str,
+        k: int,
+        namespaces: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Executes a similarity search and returns the results in the format
+        your test_retrieval() function expects.
+        """
+        results = await self.pinecone_service.similarity_search(
+            query=query,
+            k=k,
+            namespaces=namespaces
+        )
+
+        documents = []
+        formatted_content_parts = []
+
+        for r in results:
+            content = r["metadata"].get("text", "")
+            doc = {
+                "content": content,
+                "metadata": r["metadata"],
+                "namespace": r["namespace"]
+            }
+            # If github_url is stored in metadata, surface it directly
+            if "github_url" in r["metadata"]:
+                doc["github_url"] = r["metadata"]["github_url"]
+
+            documents.append(doc)
+            formatted_content_parts.append(content)
+
+        # Simple aggregated text
+        formatted_content = "\n---\n".join(formatted_content_parts)
+        return {
+            "documents": documents,
+            "formatted_content": formatted_content
+        }
+
+###############################################################################
+# Test Retrieval Script, but query is provided by user.
+###############################################################################
+async def test_retrieval(query: str):
+    """
+    Same as before, but we accept the query as a parameter
+    rather than hardcoding it.
+    """
+    logger.info("Initializing Pinecone service...")
+    try:
+        pinecone_service = PineconeService()
+        index_stats = pinecone_service.index.describe_index_stats()
+
+        stats_dict = {
+            "dimension": index_stats.dimension,
+            "index_fullness": index_stats.index_fullness,
+            "namespaces": {
+                ns: {"vector_count": details.vector_count}
+                for ns, details in index_stats.namespaces.items()
+            },
+            "total_vector_count": index_stats.total_vector_count
+        }
+        logger.info(f"Index stats: {json.dumps(stats_dict, indent=2)}")
+
+        # Add detailed namespace inspection
+        namespaces = ["repo_githubcloner"]
+        logger.info("\nInspecting namespace contents...")
+        for namespace in namespaces:
+            if namespace in index_stats.namespaces:
+                logger.info(
+                    f"Namespace '{namespace}' exists with "
+                    f"{index_stats.namespaces[namespace].vector_count} vectors"
+                )
+                # Fetch a sample vector for debugging
+                try:
+                    fetch_response = pinecone_service.index.fetch(
+                        ids=["1"],
+                        namespace=namespace
+                    )
+                    if fetch_response.vectors:
+                        logger.info(
+                            f"Sample vector metadata: "
+                            f"{json.dumps(fetch_response.vectors['1'].metadata, indent=2)}"
+                        )
+                    else:
+                        logger.warning(
+                            f"No vectors found in namespace '{namespace}' with ID '1'"
+                        )
+                except Exception as e:
+                    logger.error(f"Error fetching sample vector: {str(e)}")
+            else:
+                logger.error(f"Namespace '{namespace}' does not exist in the index!")
+    except Exception as e:
+        logger.error(f"Error initializing Pinecone service: {str(e)}")
+        return
+
+    logger.info("\nCreating retrieval tool...")
+    retrieval_tool = RetrievalTool(pinecone_service)
+
+    logger.info(f"\nTesting retrieval with user-provided query: '{query}' in namespaces: {namespaces}")
+
+    try:
+        # Generate embedding for debug
+        logger.info("Generating embedding for query...")
+        embedding = await pinecone_service.embeddings.aembed_query(query)
+        logger.info(f"Generated embedding of dimension: {len(embedding)}")
+
+        result = await retrieval_tool.execute(
+            query=query,
+            k=3,
+            namespaces=namespaces
+        )
+        logger.info("\nRetrieval successful!")
+
+        if not result["documents"]:
+            logger.warning("No documents were retrieved!")
+            # Attempt direct vector search for debug
+            logger.info("Attempting direct vector search...")
+            try:
+                direct_results = pinecone_service.index.query(
+                    vector=embedding,
+                    top_k=3,
+                    namespace=namespaces[0],
+                    include_metadata=True
+                )
+                logger.info(
+                    f"Direct vector search results: "
+                    f"{json.dumps(direct_results.to_dict(), indent=2)}"
+                )
+            except Exception as e:
+                logger.error(f"Error in direct vector search: {str(e)}")
+        else:
+            logger.info(f"\nFound {len(result['documents'])} documents")
+            for i, doc in enumerate(result["documents"], 1):
+                logger.info(f"\nDocument {i}:")
+                logger.info(f"Content: {doc['content']}")
+                logger.info(f"Metadata: {json.dumps(doc['metadata'], indent=2)}")
+                logger.info(f"Namespace: {doc['namespace']}")
+                if "github_url" in doc:
+                    logger.info(f"GitHub URL: {doc['github_url']}")
+
+            # Log formatted content
+            logger.info("\nFormatted content:")
+            logger.info(result["formatted_content"])
+
+    except Exception as e:
+        logger.error(f"\nError during retrieval: {str(e)}", exc_info=True)
+
+def main():
+    """
+    Grabs the query from sys.argv (or defaults to something if not provided)
+    and runs test_retrieval(query).
+    """
+    if len(sys.argv) < 2:
+        logger.warning("No query provided. Using a default query for demonstration.")
+        query = "what is the coding language this app is written in?"
+    else:
+        # Collect everything after the script name as the query
+        query = " ".join(sys.argv[1:])
+
+    asyncio.run(test_retrieval(query))
+
+if __name__ == "__main__":
+    main()

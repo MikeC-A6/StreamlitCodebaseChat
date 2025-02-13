@@ -141,13 +141,23 @@ def initialize_services():
     """Initialize PineconeService and RetrievalTool if not already initialized"""
     try:
         if not st.session_state.pinecone_service:
-            st.session_state.pinecone_service = PineconeService()
-            st.session_state.retrieval_tool = RetrievalTool(st.session_state.pinecone_service)
+            logger.info("Attempting to initialize PineconeService...")
+            pinecone_service = PineconeService()
+            # Test the connection by getting index stats
+            stats = pinecone_service.index.describe_index_stats()
+            logger.info(f"Successfully connected to index. Total vectors: {stats.total_vector_count}")
+
+            st.session_state.pinecone_service = pinecone_service
+            st.session_state.retrieval_tool = RetrievalTool(pinecone_service)
             logger.info("Services initialized successfully")
             return True
+        else:
+            logger.info("Services already initialized")
+            return True
     except Exception as e:
-        st.error(f"Failed to initialize services: {str(e)}")
-        logger.error(f"Service initialization error: {str(e)}")
+        error_msg = f"Failed to initialize services: {str(e)}"
+        st.error(error_msg)
+        logger.error(error_msg)
         return False
 
 # Streamlit UI components
@@ -232,13 +242,15 @@ def main():
     init_session_state()
 
     # Initialize services
-    if initialize_services():
+    services_initialized = initialize_services()
+
+    if services_initialized:
         # Render UI components
         render_header()
         render_search_form()
         render_results()
     else:
-        st.error("Failed to initialize services. Please check your API credentials.")
+        st.error("Could not initialize services. Please check the logs for details.")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,27 @@
+INFO:__main__:Initializing PineconeService
+INFO:pinecone_plugin_interface.logging:Discovering subpackages in _NamespacePath(['/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins', '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins'])
+INFO:pinecone_plugin_interface.logging:Looking for plugins in pinecone_plugins.inference
+INFO:__main__:Initializing PineconeService
+INFO:pinecone_plugin_interface.logging:Discovering subpackages in _NamespacePath(['/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins', '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins'])
+INFO:pinecone_plugin_interface.logging:Looking for plugins in pinecone_plugins.inference
+INFO:pinecone_plugin_interface.logging:Installing plugin inference into Pinecone
+INFO:pinecone_plugin_interface.logging:Installing plugin inference into Pinecone
+INFO:pinecone_plugin_interface.logging:Discovering subpackages in _NamespacePath(['/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins', '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins'])
+INFO:pinecone_plugin_interface.logging:Looking for plugins in pinecone_plugins.inference
+INFO:__main__:Connected to existing Pinecone index: projectcode
+INFO:pinecone_plugin_interface.logging:Discovering subpackages in _NamespacePath(['/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins', '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins'])
+INFO:pinecone_plugin_interface.logging:Looking for plugins in pinecone_plugins.inference
+INFO:__main__:Connected to existing Pinecone index: projectcode
+INFO:__main__:Total vectors in index: 99
+INFO:__main__:Services initialized successfully
+INFO:__main__:Total vectors in index: 99
+INFO:__main__:Services initialized successfully
+INFO:__main__:Initializing PineconeService
+INFO:pinecone_plugin_interface.logging:Discovering subpackages in _NamespacePath(['/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins', '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins'])
+INFO:pinecone_plugin_interface.logging:Looking for plugins in pinecone_plugins.inference
+INFO:pinecone_plugin_interface.logging:Installing plugin inference into Pinecone
+INFO:pinecone_plugin_interface.logging:Discovering subpackages in _NamespacePath(['/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins', '/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/pinecone_plugins'])
+INFO:pinecone_plugin_interface.logging:Looking for plugins in pinecone_plugins.inference
+INFO:__main__:Connected to existing Pinecone index: projectcode
+INFO:__main__:Total vectors in index: 99
+INFO:__main__:Services initialized successfully

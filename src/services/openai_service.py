@@ -55,26 +55,55 @@ class OpenAIService:
 
                 # Format search results for AI consumption
                 context_str = "Based on the search results from the codebase:\n\n"
-                for doc in search_results:
-                    content = doc.get('metadata', {}).get('content', '')
-                    url = doc.get('metadata', {}).get('github_url', '')
-                    context_str += f"{content}\n"
-                    if url:
-                        context_str += f"Source: {url}\n"
-                    context_str += "\n"
+                sources = []  # Keep track of sources for the end
+
+                for idx, doc in enumerate(search_results):
+                    logger.debug(f"Processing document {idx + 1}:")
+                    logger.debug(f"Document metadata: {json.dumps(doc.get('metadata', {}), indent=2)}")
+                    
+                    content = doc.get('content', '')
+                    github_url = doc.get('metadata', {}).get('file_github_url', '')
+                    
+                    if not content:
+                        logger.warning(f"Document {idx + 1} has no content!")
+                    else:
+                        logger.debug(f"Document {idx + 1} content length: {len(content)}")
+                    
+                    context_str += f"{content}\n\n"
+                    if github_url:
+                        sources.append(github_url)
+
+                # Add sources section at the end
+                if sources:
+                    context_str += "\nSources:\n"
+                    for url in sources:
+                        context_str += f"- {url}\n"
+
+                logger.debug("Formatted context for AI consumption:")
+                logger.debug(context_str)
+
+                system_message = (
+                    "You are a helpful AI assistant for answering questions about code repositories. "
+                    "Here are relevant code snippets and documentation from the codebase:\n\n"
+                    f"{context_str}\n\n"
+                    "Use the code snippets and documentation provided above to give detailed answers. "
+                    "Always reference specific code or documentation when explaining. "
+                    "When referencing files, use the URLs from the Sources section."
+                )
+
+                logger.debug("System message being sent to OpenAI:")
+                logger.debug(system_message)
 
                 # Get final response with search results
                 final_response = await self.provider.get_response(
                     query=query,
                     context={
-                        "system_message": "You are a helpful AI assistant for answering questions about code repositories. "
-                                        "Use the code snippets and documentation provided above to give detailed answers. "
-                                        "Always reference specific code or documentation when explaining.",
-                        "search_results": context_str
+                        "system_message": system_message
                     }
                 )
 
-                logger.info("Generated final response with context from search results")
+                logger.info(f"Generated response for query: '{query}'")
+                logger.debug(f"Full response content: {final_response.content}")
                 return {
                     "answer": final_response.content,
                     "documents": search_results

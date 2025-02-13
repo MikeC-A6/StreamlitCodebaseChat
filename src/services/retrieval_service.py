@@ -24,7 +24,7 @@ class RetrievalToolService(RetrievalService):
             documents = []
 
             for idx, r in enumerate(results, 1):
-                content = r["metadata"].get("text", "")
+                content = r["metadata"].get("chunk_content", "")
                 doc = {
                     "content": content,
                     "metadata": r["metadata"],
@@ -36,7 +36,7 @@ class RetrievalToolService(RetrievalService):
                     doc["github_url"] = r["metadata"]["github_url"]
 
                 documents.append(doc)
-                logger.debug(f"Processed result {idx}: score={r['score']}, namespace={r['namespace']}")
+                logger.debug(f"Processed result {idx}: score={r['score']}, namespace={r['namespace']}, content length: {len(content)}")
 
             logger.info(f"Successfully processed {len(documents)} documents")
             return documents

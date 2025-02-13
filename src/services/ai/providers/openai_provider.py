@@ -37,24 +37,24 @@ class OpenAIProvider(AIService):
                     "role": "system",
                     "content": context["system_message"]
                 })
-
-            # Add context if available
-            if context and context.get("search_results"):
-                messages.append({
-                    "role": "system",
-                    "content": context["search_results"]
-                })
+                logger.info("Added system message to messages array")
+                logger.debug(f"System message content: {context['system_message']}")
 
             # Add the user's query
             messages.append({"role": "user", "content": query})
+            logger.info(f"Added user query to messages array: {query}")
 
             # Prepare tools if provided
             openai_tools = None
             if tools:
                 openai_tools = [tool.to_dict() for tool in tools]
+                logger.info(f"Prepared {len(openai_tools)} tools for OpenAI API")
 
             logger.info(f"Making OpenAI API call with model {self.model}")
-            logger.debug(f"Messages being sent to OpenAI: {json.dumps(messages, indent=2)}")
+            logger.info(f"Total number of messages being sent: {len(messages)}")
+            logger.debug("Full messages payload:")
+            for idx, msg in enumerate(messages):
+                logger.debug(f"Message {idx + 1} - Role: {msg['role']}, Content length: {len(msg['content'])}")
 
             completion = await self.client.chat.completions.create(
                 model=self.model,

@@ -1,0 +1,50 @@
+.main-title {
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.search-container {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    background-color: #f8f9fa;
+}
+
+.result-container {
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+}
+
+.error-message {
+    color: #dc3545;
+    padding: 1rem;
+    border: 1px solid #dc3545;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+
+.success-message {
+    color: #28a745;
+    padding: 1rem;
+    border: 1px solid #28a745;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+
+.metadata-box {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.github-link {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+.github-link:hover {
+    text-decoration: underline;
+}

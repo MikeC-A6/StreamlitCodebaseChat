@@ -27,7 +27,8 @@ class RetrievalToolService(RetrievalService):
             doc = {
                 "content": content,
                 "metadata": r["metadata"],
-                "namespace": r["namespace"]
+                "namespace": r["namespace"],
+                "score": r["score"]
             }
             if "github_url" in r["metadata"]:
                 doc["github_url"] = r["metadata"]["github_url"]
@@ -53,7 +54,7 @@ class RetrievalToolService(RetrievalService):
         # Get AI completion
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o-mini",  # Using the specified model
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}

@@ -9,9 +9,7 @@ logger = setup_logger(__name__)
 def render_header():
     st.title("AI Chat Interface with Vector Search")
     st.markdown("""
-    <div class="main-title">
-        Chat with your codebase using AI and vector search
-    </div>
+    Chat with your codebase using AI and vector search
     """, unsafe_allow_html=True)
 
 def init_chat_state():
@@ -38,11 +36,16 @@ def render_chat_interface(retrieval_service: RetrievalService):
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-            if "sources" in message:
+            if message.get("sources"):
                 st.markdown("**Sources:**")
-                for source in message["sources"]:
-                    if "github_url" in source:
-                        st.markdown(f"- [{source['content'][:100]}...]({source['github_url']})")
+                for doc in message["sources"]:
+                    if doc.get("github_url"):
+                        score = doc.get("score", 0)
+                        score_percentage = f"{score * 100:.1f}%" if score else "N/A"
+                        st.markdown(
+                            f"- [{doc['content'][:100]}...]({doc['github_url']}) "
+                            f"(Relevance: {score_percentage})"
+                        )
 
     # Chat input
     if prompt := st.chat_input("Ask a question about your codebase"):
@@ -77,8 +80,13 @@ def render_chat_interface(retrieval_service: RetrievalService):
                     if response["documents"]:
                         st.markdown("**Sources:**")
                         for doc in response["documents"]:
-                            if "github_url" in doc:
-                                st.markdown(f"- [{doc['content'][:100]}...]({doc['github_url']})")
+                            if doc.get("github_url"):
+                                score = doc.get("score", 0)
+                                score_percentage = f"{score * 100:.1f}%" if score else "N/A"
+                                st.markdown(
+                                    f"- [{doc['content'][:100]}...]({doc['github_url']}) "
+                                    f"(Relevance: {score_percentage})"
+                                )
                 except Exception as e:
                     error_msg = f"Error: {str(e)}"
                     st.error(error_msg)

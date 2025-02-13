@@ -21,17 +21,13 @@ class OpenAIService:
         try:
             logger.info(f"Processing query: '{query}' with k={k}, namespaces={namespaces}")
 
-            # Initial system message for tool use
-            system_message = f"""You are a helpful AI assistant for answering questions about code repositories. 
-            Always use the search_knowledge_base function to gather relevant context before providing an answer.
-            You must use these exact namespaces for searching: {namespaces}
-            You must use this exact number of results: {k}
-            After receiving search results, analyze them carefully and provide detailed answers referencing the specific code and documentation found."""
-
             # Get AI response with knowledge base tool
             response = await self.provider.get_response(
                 query=query,
-                context={"system_message": system_message},
+                context={
+                    "system_message": "You are a helpful AI assistant for answering questions about code repositories. "
+                                    "Use the search_knowledge_base function to find relevant information before answering."
+                },
                 tools=self.registry.get_all_tools()
             )
 
@@ -57,34 +53,25 @@ class OpenAIService:
                 )
                 logger.info(f"Retrieved {len(search_results)} results from vector store")
 
-                # Format search results for better context
-                context_str = "Here are the relevant code snippets and documentation from the repository:\n\n"
-                for idx, doc in enumerate(search_results, 1):
+                # Format search results for AI consumption
+                context_str = "Based on the search results from the codebase:\n\n"
+                for doc in search_results:
                     content = doc.get('metadata', {}).get('content', '')
-                    score = doc.get('score', 0)
                     url = doc.get('metadata', {}).get('github_url', '')
-                    namespace = doc.get('namespace', 'default')
-
-                    context_str += f"Document {idx} [Relevance Score: {score:.2f}]\n"
-                    context_str += f"Location: {url}\n"
-                    context_str += f"Namespace: {namespace}\n"
-                    context_str += f"Content:\n{content}\n"
-                    context_str += "-" * 80 + "\n\n"
+                    context_str += f"{content}\n"
+                    if url:
+                        context_str += f"Source: {url}\n"
+                    context_str += "\n"
 
                 # Get final response with search results
                 final_response = await self.provider.get_response(
                     query=query,
                     context={
-                        "system_message": """You are a helpful AI assistant for answering questions about code repositories.
-                        Your task is to:
-                        1. Carefully analyze the provided search results
-                        2. Reference specific code snippets and documentation in your answer
-                        3. Include relevant file locations when discussing code
-                        4. Explain how the referenced code relates to the user's question
-                        5. If a GitHub URL is available, mention it for further reference""",
+                        "system_message": "You are a helpful AI assistant for answering questions about code repositories. "
+                                        "Use the code snippets and documentation provided above to give detailed answers. "
+                                        "Always reference specific code or documentation when explaining.",
                         "search_results": context_str
-                    },
-                    tools=None  # No tools needed for final response
+                    }
                 )
 
                 logger.info("Generated final response with context from search results")

@@ -31,27 +31,18 @@ class OpenAIProvider(AIService):
             # Prepare messages
             messages = []
 
-            # Add system message first if provided
+            # Add system message if provided
             if context and context.get("system_message"):
                 messages.append({
                     "role": "system",
                     "content": context["system_message"]
                 })
 
-            # Add search results as context if available
+            # Add context if available
             if context and context.get("search_results"):
-                # Add the search results as a separate message
                 messages.append({
                     "role": "system",
-                    "content": "Here are the search results from the codebase. Use this information to provide an accurate and detailed response:"
-                })
-                messages.append({
-                    "role": "user",
                     "content": context["search_results"]
-                })
-                messages.append({
-                    "role": "system",
-                    "content": "Now, based on these search results, provide a detailed response to the user's query. Make sure to reference specific documents and code snippets from the search results."
                 })
 
             # Add the user's query

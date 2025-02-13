@@ -7,67 +7,79 @@ import asyncio
 logger = setup_logger(__name__)
 
 def render_header():
-    st.title("Pinecone Vector Search Interface")
+    st.title("AI Chat Interface with Vector Search")
     st.markdown("""
     <div class="main-title">
-        Search through your vector database using natural language queries
+        Chat with your codebase using AI and vector search
     </div>
     """, unsafe_allow_html=True)
 
-def render_search_form(retrieval_service: RetrievalService):
-    st.markdown("### Search")
-    with st.form("search_form"):
-        query = st.text_input("Enter your search query")
-        col1, col2 = st.columns(2)
-        with col1:
-            k = st.number_input("Number of results", min_value=1, max_value=10, value=3)
-        with col2:
-            namespaces = st.multiselect(
-                "Select namespaces",
-                options=["repo_githubcloner"],  # Add more as needed
-                default=["repo_githubcloner"]
-            )
+def init_chat_state():
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
-        submitted = st.form_submit_button("Search")
-        if submitted and query:
-            try:
-                results = asyncio.run(
-                    retrieval_service.execute(
-                        query=query,
-                        k=k,
-                        namespaces=namespaces
+def render_chat_interface(retrieval_service: RetrievalService):
+    st.markdown("### Chat")
+
+    # Settings sidebar
+    with st.sidebar:
+        st.markdown("### Search Settings")
+        k = st.number_input("Number of results to retrieve", min_value=1, max_value=10, value=3)
+        namespaces = st.multiselect(
+            "Select namespaces",
+            options=["repo_githubcloner"],  # Add more as needed
+            default=["repo_githubcloner"]
+        )
+
+    # Initialize chat history
+    init_chat_state()
+
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            if "sources" in message:
+                st.markdown("**Sources:**")
+                for source in message["sources"]:
+                    if "github_url" in source:
+                        st.markdown(f"- [{source['content'][:100]}...]({source['github_url']})")
+
+    # Chat input
+    if prompt := st.chat_input("Ask a question about your codebase"):
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # Get AI response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                try:
+                    response = asyncio.run(
+                        retrieval_service.execute(
+                            query=prompt,
+                            k=k,
+                            namespaces=namespaces
+                        )
                     )
-                )
-                st.session_state.search_results = results
-                st.session_state.error_message = None
-            except Exception as e:
-                st.session_state.error_message = str(e)
-                st.session_state.search_results = None
 
-def render_results():
-    if st.session_state.error_message:
-        st.error(st.session_state.error_message)
-        return
+                    # Add assistant response to chat history
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": response["answer"],
+                        "sources": response["documents"]
+                    })
 
-    if st.session_state.search_results:
-        st.markdown("### Results")
-        documents = st.session_state.search_results.get("documents", [])
-
-        if not documents:
-            st.warning("No results found.")
-            return
-
-        for i, doc in enumerate(documents, 1):
-            with st.container():
-                st.markdown(f"#### Result {i}")
-                st.markdown(f"**Content:**\n{doc['content']}")
-
-                with st.expander("Metadata"):
-                    st.json(doc['metadata'])
-
-                st.markdown(f"**Namespace:** {doc['namespace']}")
-
-                if "github_url" in doc:
-                    st.markdown(f"[View on GitHub]({doc['github_url']})")
-
-                st.markdown("---")
+                    # Display response and sources
+                    st.markdown(response["answer"])
+                    if response["documents"]:
+                        st.markdown("**Sources:**")
+                        for doc in response["documents"]:
+                            if "github_url" in doc:
+                                st.markdown(f"- [{doc['content'][:100]}...]({doc['github_url']})")
+                except Exception as e:
+                    error_msg = f"Error: {str(e)}"
+                    st.error(error_msg)
+                    logger.error(error_msg)

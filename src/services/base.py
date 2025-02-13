@@ -10,5 +10,5 @@ class VectorService(ABC):
 class RetrievalService(ABC):
     @abstractmethod
     async def execute(self, query: str, k: int, namespaces: List[str]) -> Dict[str, Any]:
-        """Execute a retrieval query and return formatted results."""
+        """Execute a retrieval query and return formatted results with AI response."""
         pass

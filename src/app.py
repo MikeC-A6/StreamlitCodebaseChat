@@ -1,7 +1,7 @@
 import streamlit as st
 from services.pinecone_service import PineconeService
 from services.retrieval_service import RetrievalToolService
-from ui.components import render_header, render_search_form, render_results
+from ui.components import render_header, render_chat_interface
 from utils.logging import setup_logger
 
 logger = setup_logger(__name__)
@@ -12,8 +12,8 @@ def init_session_state():
         st.session_state.pinecone_service = None
     if 'retrieval_service' not in st.session_state:
         st.session_state.retrieval_service = None
-    if 'search_results' not in st.session_state:
-        st.session_state.search_results = None
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
     if 'error_message' not in st.session_state:
         st.session_state.error_message = None
 
@@ -38,8 +38,8 @@ def initialize_services():
 
 def main():
     st.set_page_config(
-        page_title="Pinecone Vector Search",
-        page_icon="🔍",
+        page_title="AI Chat with Vector Search",
+        page_icon="🤖",
         layout="wide"
     )
 
@@ -56,8 +56,7 @@ def main():
     if services_initialized:
         # Render UI components
         render_header()
-        render_search_form(st.session_state.retrieval_service)
-        render_results()
+        render_chat_interface(st.session_state.retrieval_service)
     else:
         st.error("Could not initialize services. Please check the logs for details.")
 

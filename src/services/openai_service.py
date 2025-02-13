@@ -57,9 +57,10 @@ class OpenAIService:
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are a helpful AI assistant for answering questions about code repositories. 
-                        For any user question, ALWAYS use the search_knowledge_base function first to gather relevant context 
-                        before providing an answer. This is crucial for accurate responses."""
+                        "content": f"""You are a helpful AI assistant for answering questions about code repositories. 
+                        Always use the search_knowledge_base function to gather relevant context before providing an answer.
+                        You must use these exact namespaces for searching: {namespaces}
+                        You must use this exact number of results: {k}"""
                     },
                     {"role": "user", "content": query}
                 ],
@@ -79,12 +80,16 @@ class OpenAIService:
                 args = json.loads(tool_call.function.arguments)
                 logger.info(f"Function call arguments: {args}")
 
+                # Override the options to ensure correct values
+                args["options"]["num_results"] = k
+                args["options"]["namespaces"] = namespaces
+
                 # Call the retrieval function
                 logger.info("Calling retrieval function with parsed arguments")
                 search_results = await retrieval_function(
                     query=args["query"],
-                    k=args["options"]["num_results"],
-                    namespaces=args["options"]["namespaces"]
+                    k=k,
+                    namespaces=namespaces
                 )
                 logger.info(f"Retrieved {len(search_results)} results from vector store")
 

@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 import streamlit as st
 from src.services.pinecone_service import PineconeService
 from src.services.retrieval_service import RetrievalToolService
+from src.services.openai_service import OpenAIService
 from src.ui.components import render_header, render_chat_interface
 from src.utils.logging import setup_logger
 
@@ -16,6 +17,8 @@ def init_session_state():
         st.session_state.pinecone_service = None
     if 'retrieval_service' not in st.session_state:
         st.session_state.retrieval_service = None
+    if 'openai_service' not in st.session_state:
+        st.session_state.openai_service = None
     if 'messages' not in st.session_state:
         st.session_state.messages = []
     if 'error_message' not in st.session_state:
@@ -25,10 +28,15 @@ def initialize_services():
     """Initialize services if not already initialized."""
     try:
         if not st.session_state.pinecone_service:
-            logger.info("Attempting to initialize PineconeService...")
+            logger.info("Attempting to initialize services...")
             pinecone_service = PineconeService()
+            retrieval_service = RetrievalToolService(pinecone_service)
+            openai_service = OpenAIService()
+
             st.session_state.pinecone_service = pinecone_service
-            st.session_state.retrieval_service = RetrievalToolService(pinecone_service)
+            st.session_state.retrieval_service = retrieval_service
+            st.session_state.openai_service = openai_service
+
             logger.info("Services initialized successfully")
             return True
         else:
@@ -60,7 +68,7 @@ def main():
     if services_initialized:
         # Render UI components
         render_header()
-        render_chat_interface(st.session_state.retrieval_service)
+        render_chat_interface(st.session_state.openai_service, st.session_state.retrieval_service)
     else:
         st.error("Could not initialize services. Please check the logs for details.")
 

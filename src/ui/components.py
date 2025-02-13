@@ -1,6 +1,7 @@
 import streamlit as st
 from typing import List, Optional
 from src.services.base import RetrievalService
+from src.services.openai_service import OpenAIService
 from src.utils.logging import setup_logger
 import asyncio
 
@@ -16,7 +17,7 @@ def init_chat_state():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-def render_chat_interface(retrieval_service: RetrievalService):
+def render_chat_interface(openai_service: OpenAIService, retrieval_service: RetrievalService):
     st.markdown("### Chat")
 
     # Settings sidebar
@@ -60,9 +61,11 @@ def render_chat_interface(retrieval_service: RetrievalService):
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
+                    # Use OpenAI service with retrieval function
                     response = asyncio.run(
-                        retrieval_service.execute(
+                        openai_service.get_response(
                             query=prompt,
+                            retrieval_function=retrieval_service.execute,
                             k=k,
                             namespaces=namespaces
                         )

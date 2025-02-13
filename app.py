@@ -3,8 +3,9 @@ import asyncio
 import json
 from typing import Optional, Dict, Any
 import logging
+import os
 
-# Import the PineconeService and RetrievalTool from the provided code
+# Import the required libraries
 from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings
@@ -28,32 +29,30 @@ def init_session_state():
 class PineconeServiceError(Exception):
     pass
 
-# PineconeService class (from the provided code)
+# PineconeService class
 class PineconeService:
-    def __init__(self, openai_api_key: str, pinecone_api_key: str, pinecone_index: str):
+    def __init__(self):
         try:
             logger.info("Initializing PineconeService")
             self.embeddings = OpenAIEmbeddings(
                 model="text-embedding-3-small",
-                openai_api_key=openai_api_key
+                openai_api_key=os.environ["OPENAI_API_KEY"]
             )
 
             self.dimension = 1536  # For 'text-embedding-3-small'
-            self.pc = Pinecone(api_key=pinecone_api_key)
+            self.pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 
             try:
-                self.index = self.pc.Index(pinecone_index)
-                logger.info(f"Connected to existing Pinecone index: {pinecone_index}")
-            except Exception:
-                logger.info(f"Index {pinecone_index} not found, creating new index...")
-                self.pc.create_index(
-                    name=pinecone_index,
-                    dimension=self.dimension,
-                    metric="cosine",
-                    spec=ServerlessSpec(cloud="aws", region="us-east-1")
-                )
-                self.index = self.pc.Index(pinecone_index)
-                logger.info(f"Created new Pinecone index: {pinecone_index}")
+                self.index = self.pc.Index(os.environ["PINECONE_INDEX"])
+                logger.info(f"Connected to existing Pinecone index: {os.environ['PINECONE_INDEX']}")
+            except Exception as e:
+                error_msg = f"Failed to connect to Pinecone index: {str(e)}"
+                logger.error(error_msg)
+                raise PineconeServiceError(error_msg)
+
+            # Log index stats
+            stats = self.index.describe_index_stats()
+            logger.info(f"Total vectors in index: {stats.total_vector_count}")
 
         except Exception as e:
             error_msg = f"Failed to initialize Pinecone service: {str(e)}"
@@ -74,7 +73,7 @@ class PineconeService:
                             include_metadata=True,
                             namespace=namespace
                         )
-                        
+
                         for match in response.matches:
                             result = {
                                 "score": match.score,
@@ -138,6 +137,19 @@ class RetrievalTool:
             "formatted_content": formatted_content
         }
 
+def initialize_services():
+    """Initialize PineconeService and RetrievalTool if not already initialized"""
+    try:
+        if not st.session_state.pinecone_service:
+            st.session_state.pinecone_service = PineconeService()
+            st.session_state.retrieval_tool = RetrievalTool(st.session_state.pinecone_service)
+            logger.info("Services initialized successfully")
+            return True
+    except Exception as e:
+        st.error(f"Failed to initialize services: {str(e)}")
+        logger.error(f"Service initialization error: {str(e)}")
+        return False
+
 # Streamlit UI components
 def render_header():
     st.title("Pinecone Vector Search Interface")
@@ -147,31 +159,7 @@ def render_header():
     </div>
     """, unsafe_allow_html=True)
 
-def render_credentials_form():
-    with st.expander("API Credentials", expanded=not st.session_state.pinecone_service):
-        openai_api_key = st.text_input("OpenAI API Key", type="password")
-        pinecone_api_key = st.text_input("Pinecone API Key", type="password")
-        pinecone_index = st.text_input("Pinecone Index Name")
-        
-        if st.button("Initialize Service"):
-            try:
-                st.session_state.pinecone_service = PineconeService(
-                    openai_api_key=openai_api_key,
-                    pinecone_api_key=pinecone_api_key,
-                    pinecone_index=pinecone_index
-                )
-                st.session_state.retrieval_tool = RetrievalTool(st.session_state.pinecone_service)
-                st.success("Service initialized successfully!")
-            except Exception as e:
-                st.error(f"Failed to initialize service: {str(e)}")
-                st.session_state.pinecone_service = None
-                st.session_state.retrieval_tool = None
-
 def render_search_form():
-    if not st.session_state.pinecone_service:
-        st.warning("Please initialize the service with your API credentials first.")
-        return
-
     st.markdown("### Search")
     with st.form("search_form"):
         query = st.text_input("Enter your search query")
@@ -184,7 +172,7 @@ def render_search_form():
                 options=["repo_githubcloner"],  # Add more as needed
                 default=["repo_githubcloner"]
             )
-        
+
         submitted = st.form_submit_button("Search")
         if submitted and query:
             try:
@@ -209,7 +197,7 @@ def render_results():
     if st.session_state.search_results:
         st.markdown("### Results")
         documents = st.session_state.search_results.get("documents", [])
-        
+
         if not documents:
             st.warning("No results found.")
             return
@@ -218,15 +206,15 @@ def render_results():
             with st.container():
                 st.markdown(f"#### Result {i}")
                 st.markdown(f"**Content:**\n{doc['content']}")
-                
+
                 with st.expander("Metadata"):
                     st.json(doc['metadata'])
-                
+
                 st.markdown(f"**Namespace:** {doc['namespace']}")
-                
+
                 if "github_url" in doc:
                     st.markdown(f"[View on GitHub]({doc['github_url']})")
-                
+
                 st.markdown("---")
 
 def main():
@@ -243,11 +231,14 @@ def main():
     # Initialize session state
     init_session_state()
 
-    # Render UI components
-    render_header()
-    render_credentials_form()
-    render_search_form()
-    render_results()
+    # Initialize services
+    if initialize_services():
+        # Render UI components
+        render_header()
+        render_search_form()
+        render_results()
+    else:
+        st.error("Failed to initialize services. Please check your API credentials.")
 
 if __name__ == "__main__":
     main()

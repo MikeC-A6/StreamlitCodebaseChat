@@ -11,7 +11,7 @@ logger = setup_logger(__name__)
 
 class OpenAIProvider(AIService):
     """OpenAI implementation of AIService."""
-    
+
     def __init__(self):
         logger.info("Initializing OpenAIProvider")
         self.client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
@@ -30,11 +30,21 @@ class OpenAIProvider(AIService):
         try:
             # Prepare messages
             messages = []
-            if context and context.get("system_message"):
-                messages.append({
-                    "role": "system",
-                    "content": context["system_message"]
-                })
+            if context:
+                if context.get("system_message"):
+                    messages.append({
+                        "role": "system",
+                        "content": context["system_message"]
+                    })
+                if context.get("search_results"):
+                    messages.append({
+                        "role": "assistant",
+                        "content": "I found some relevant information. Let me analyze it."
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": context["search_results"]
+                    })
             messages.append({"role": "user", "content": query})
 
             # Prepare tools if provided
@@ -43,6 +53,8 @@ class OpenAIProvider(AIService):
                 openai_tools = [tool.to_dict() for tool in tools]
 
             logger.info(f"Making OpenAI API call with model {self.model}")
+            logger.debug(f"Messages being sent to OpenAI: {json.dumps(messages, indent=2)}")
+
             completion = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -52,7 +64,7 @@ class OpenAIProvider(AIService):
 
             response_message = completion.choices[0].message
             tool_calls = None
-            
+
             if response_message.tool_calls:
                 tool_calls = [
                     ToolCall(

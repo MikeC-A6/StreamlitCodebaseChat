@@ -55,13 +55,24 @@ class OpenAIService:
                 )
                 logger.info(f"Retrieved {len(search_results)} results from vector store")
 
+                # Format search results for better context
+                context_str = "Here are the relevant code snippets and documentation:\n\n"
+                for idx, doc in enumerate(search_results, 1):
+                    content = doc.get('metadata', {}).get('content', '')
+                    score = doc.get('score', 0)
+                    url = doc.get('metadata', {}).get('github_url', '')
+                    context_str += f"Document {idx} (Relevance: {score:.2f}):\n"
+                    context_str += f"Source: {url}\n"
+                    context_str += f"Content: {content}\n\n"
+
                 # Get final response with search results
                 final_response = await self.provider.get_response(
                     query=query,
                     context={
                         "system_message": """You are a helpful AI assistant for answering questions about code repositories. 
-                        Analyze the search results and provide a clear, detailed response. Always reference specific 
-                        files and code snippets when relevant."""
+                        Based on the provided search results, give a detailed and accurate answer. Reference specific 
+                        files, code snippets, and documentation in your response. Include relevant GitHub URLs when available.""",
+                        "search_results": context_str
                     },
                     tools=None  # No tools needed for final response
                 )

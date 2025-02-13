@@ -1,8 +1,7 @@
 from typing import Dict, Any, List
 from openai import AsyncOpenAI
-from .base import RetrievalService, VectorService
-from ..models.types import SearchResponse
-from ..utils.logging import setup_logger
+from src.services.base import RetrievalService, VectorService
+from src.utils.logging import setup_logger
 import os
 
 logger = setup_logger(__name__)

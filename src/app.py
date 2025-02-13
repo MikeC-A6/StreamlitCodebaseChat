@@ -1,8 +1,12 @@
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+
 import streamlit as st
-from services.pinecone_service import PineconeService
-from services.retrieval_service import RetrievalToolService
-from ui.components import render_header, render_chat_interface
-from utils.logging import setup_logger
+from src.services.pinecone_service import PineconeService
+from src.services.retrieval_service import RetrievalToolService
+from src.ui.components import render_header, render_chat_interface
+from src.utils.logging import setup_logger
 
 logger = setup_logger(__name__)
 

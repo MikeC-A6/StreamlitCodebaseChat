@@ -1,7 +1,7 @@
 [project]
 name = "repl-nix-workspace"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI Chat Interface with Vector Search"
 requires-python = ">=3.11"
 dependencies = [
     "langchain-openai>=0.3.5",
@@ -11,3 +11,8 @@ dependencies = [
     "pinecone-client>=4.1.2",
     "streamlit>=1.42.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+namespaces = false

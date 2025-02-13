@@ -1,7 +1,7 @@
 import streamlit as st
 from typing import List, Optional
-from ..services.base import RetrievalService
-from ..utils.logging import setup_logger
+from src.services.base import RetrievalService
+from src.utils.logging import setup_logger
 import asyncio
 
 logger = setup_logger(__name__)

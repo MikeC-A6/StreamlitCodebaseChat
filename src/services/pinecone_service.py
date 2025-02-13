@@ -1,9 +1,9 @@
 from typing import List, Dict, Any, Optional
 import pinecone
 from langchain_openai import OpenAIEmbeddings
-from .base import VectorService
-from ..utils.logging import setup_logger
-from ..config.settings import settings
+from src.services.base import VectorService
+from src.utils.logging import setup_logger
+from src.config.settings import settings
 
 logger = setup_logger(__name__)
 

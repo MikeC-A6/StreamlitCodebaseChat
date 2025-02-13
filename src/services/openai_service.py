@@ -9,13 +9,13 @@ logger = setup_logger(__name__)
 class OpenAIService:
     def __init__(self):
         self.client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
-        
+
         # Define the function for retrieving context
         self.tools = [{
             "type": "function",
             "function": {
                 "name": "search_knowledge_base",
-                "description": "Search the knowledge base to find relevant documentation and code snippets",
+                "description": "Search the knowledge base to find relevant documentation and code snippets that help answer the question.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -46,25 +46,33 @@ class OpenAIService:
 
     async def get_response(self, query: str, retrieval_function, k: int, namespaces: List[str]) -> Dict[str, Any]:
         try:
-            # First, ask the model if it needs to search the knowledge base
+            # First message to evaluate if search is needed
             completion = await self.client.chat.completions.create(
-                model="gpt-4o",  # The newest OpenAI model released May 13, 2024
-                messages=[{
-                    "role": "user",
-                    "content": query
-                }],
-                tools=self.tools
+                model="gpt-4o",  # the newest OpenAI model released May 13, 2024
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are a helpful AI assistant for answering questions about code repositories. 
+                        For any user question, ALWAYS use the search_knowledge_base function first to gather relevant context 
+                        before providing an answer. This is crucial for accurate responses."""
+                    },
+                    {"role": "user", "content": query}
+                ],
+                tools=self.tools,
+                tool_choice={"type": "function", "function": {"name": "search_knowledge_base"}}  # Force function call
             )
 
             response_message = completion.choices[0].message
+            logger.info(f"Initial model response: {response_message}")
 
-            # If the model wants to search the knowledge base
+            # The model should always make a tool call due to tool_choice
             if response_message.tool_calls:
                 tool_call = response_message.tool_calls[0]
-                
+
                 # Parse the function arguments
                 args = json.loads(tool_call.function.arguments)
-                
+                logger.info(f"Function call arguments: {args}")
+
                 # Call the retrieval function
                 search_results = await retrieval_function(
                     query=args["query"],
@@ -74,6 +82,12 @@ class OpenAIService:
 
                 # Send the results back to the model
                 messages = [
+                    {
+                        "role": "system",
+                        "content": """You are a helpful AI assistant for answering questions about code repositories. 
+                        Analyze the search results and provide a clear, detailed response. Always reference specific 
+                        files and code snippets when relevant."""
+                    },
                     {"role": "user", "content": query},
                     response_message,
                     {
@@ -94,9 +108,10 @@ class OpenAIService:
                     "documents": search_results
                 }
             else:
-                # Model didn't need to search, return direct response
+                # This shouldn't happen due to tool_choice, but handle it just in case
+                logger.error("Model did not make expected function call")
                 return {
-                    "answer": response_message.content,
+                    "answer": "I apologize, but I was unable to search the codebase. Please try again.",
                     "documents": []
                 }
 
